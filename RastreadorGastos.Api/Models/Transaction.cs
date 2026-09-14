@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+
 namespace RastreadorGastos.Api.Models;
 
 public class Transaction
@@ -9,6 +11,7 @@ public class Transaction
     public string UserId { get; set; } = string.Empty;
 
     public int CategoryId { get; set; }
-    public Category Category { get; set; } = null;
 
+    [ValidateNever]
+    public Category Category { get; set; } = null!;
 }
