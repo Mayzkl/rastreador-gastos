@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RastreadorGastos.Api.Data;
@@ -7,6 +9,7 @@ namespace RastreadorGastos.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CategoriesController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -16,18 +19,25 @@ public class CategoriesController : ControllerBase
         _context = context;
     }
 
+    private string GetUserId()
+    {
+        return User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    }
+
     // GET: api/categories
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
     {
-        return await _context.Categories.ToListAsync();
+        var userId = GetUserId();
+        return await _context.Categories.Where(c => c.UserId == userId).ToListAsync();
     }
 
     // GET: api/categories/5
     [HttpGet("{id}")]
     public async Task<ActionResult<Category>> GetCategory(int id)
     {
-        var category = await _context.Categories.FindAsync(id);
+        var userId = GetUserId();
+        var category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
 
         if (category == null)
         {
@@ -41,6 +51,7 @@ public class CategoriesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Category>> CreateCategory(Category category)
     {
+        category.UserId = GetUserId();
         _context.Categories.Add(category);
         await _context.SaveChangesAsync();
 
@@ -51,12 +62,16 @@ public class CategoriesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateCategory(int id, Category category)
     {
-        if (id != category.Id)
+        var userId = GetUserId();
+        var existing = await _context.Categories.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+
+        if (existing == null)
         {
-            return BadRequest();
+            return NotFound();
         }
 
-        _context.Entry(category).State = EntityState.Modified;
+        existing.Name = category.Name;
+        existing.Type = category.Type;
         await _context.SaveChangesAsync();
 
         return NoContent();
@@ -66,7 +81,9 @@ public class CategoriesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCategory(int id)
     {
-        var category = await _context.Categories.FindAsync(id);
+        var userId = GetUserId();
+        var category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
+
         if (category == null)
         {
             return NotFound();
